@@ -1,6 +1,9 @@
+import phonenumbers
 from django.core.paginator import Paginator
 
 from django.db.models.query_utils import Q
+from phonenumbers import NumberParseException
+
 from web.models import CommandTrack, MatchRequest, Message, MessageCategory, User, UserDescription, UserDetails
 
 """
@@ -45,22 +48,26 @@ class PenziQuery:
     def _get_match(self):
         # check user request
         town_match = User.objects.filter(Q(town__icontains=self.request.town) | Q(county__icontains=self.request.town))
+        print(f"Town match: {town_match}")
 
         if self.request.lower_age is not None:
             age_match = town_match.filter(age__range=(self.request.lower_age, self.request.upper_age))
         else:
             age_match = town_match.filter(age=self.request.upper_age)
+        print(f"age match: {age_match}")
 
         if self.request.user.gender == "male":
             match = age_match.filter(gender="female")
         else:
             match = age_match.filter(gender="male")
+        print(f"gender match: {town_match}")
         return match
 
     def paginated_match(self):
         # gets a subset of the match result, 
         p = Paginator(self._get_match(), 3)
         page = p.page(self.request.page)
+
         return page
 
     def request_next(self):
@@ -84,6 +91,7 @@ class PenziQuery:
         res = self.paginated_match()
         all_matches = self._get_match().count()
 
+        print(f"all matches: {self._get_match()}")
         if all_matches == 0:
             message = f"We couldn't find {self.title_plural} matching your criteria. Try again later."
         elif all_matches == 1:
@@ -120,6 +128,14 @@ class Penzi:
     def __init__(self, message: Message):
         self.message = message
 
+    def _is_phone(self):
+        text = self.message.text
+        try:
+            phonenumbers.parse(text, 'KE')
+        except NumberParseException:
+            return False
+        return True
+
     def category(self, text: str):
         """
         Categorize text depending on first word
@@ -142,6 +158,8 @@ class Penzi:
             return MessageCategory.NOTICE_CONFIRMATION
         elif text == "activate":
             return MessageCategory.RE_ACTIVATION
+        if self._is_phone():
+            return MessageCategory.MORE_DETAILS
 
     def validate(self) -> dict:
         """
@@ -248,6 +266,12 @@ class Penzi:
             response["category"] = category
             response["message"] = self.message
 
+        elif category == MessageCategory.MORE_DETAILS:
+            response["code"] = 0
+            response["desc"] = "valid"
+            response["category"] = category
+            response["message"] = self.message
+
         return response
 
 
@@ -283,7 +307,7 @@ class Process:
             track.save()
             return
 
-    def process(self):
+    def process(self) -> dict:
         phone = self.validation["message"].source
         if "category" not in self.validation:
             return {"action": "noreply", "messages": ["Unvalidated input"]}
@@ -298,6 +322,12 @@ class Process:
             response["messages"] = [
                 "Welcome to our dating service with 6000 potential dating partners! To register, "
                 "sms start#name#age#sex#county#town to 5001 E.G start#Mike#26#Male#kisii#ogembo"]
+
+        elif category == MessageCategory.SERVICE_ACTIVATION and exists:
+            response["action"] = "reply"
+            response["messages"] = [
+                "You are now registered! Enjoy yourself. To search for a MPENZI, SMS Match#age#town to 5001 E.G "
+                "Match#23-25#Nairobi"]
 
         elif category == MessageCategory.SERVICE_REGISTRATION and not exists:
 
@@ -400,6 +430,34 @@ class Process:
 
             response["action"] = "reply"
             response["messages"] = [message]
+
+        elif category == MessageCategory.MORE_DETAILS:
+
+            search_term = int(phonenumbers.format_number(
+                phonenumbers.parse(data.text, 'KE'),
+                phonenumbers.PhoneNumberFormat.E164
+            )[1:])
+            user = User.objects.filter(phone=search_term)
+            if user.count() > 0:
+                user = user.first()
+                message = f"{user.full_name}, aged {user.age}, {user.town} town - {user.county} county"
+                if user.userdetails.education is not None:
+                    message += f" {user.userdetails.education},"
+                if user.userdetails.profession is not None:
+                    message += f" {user.userdetails.profession},"
+                if user.userdetails.marital_status is not None:
+                    message += f" {user.userdetails.marital_status},"
+                if user.userdetails.religion is not None:
+                    message += f" {user.userdetails.religion},"
+                if user.userdetails.tribe is not None:
+                    message += f" {user.userdetails.tribe},"
+
+                message += f" Send DESCRIBE {user.phone} to get more details about {user.full_name}"
+                response["action"] = "reply"
+                response["messages"] = [message]
+            else:
+                response["action"] = "noreply"
+                response["messages"] = ["User not found"]
 
         elif category == MessageCategory.DESCRIPTION_REQUEST:
             searched_desc = data.text.split("#")
