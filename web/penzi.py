@@ -60,15 +60,19 @@ class PenziQuery:
             match = age_match.filter(gender="female")
         else:
             match = age_match.filter(gender="male")
-        print(f"gender match: {town_match}")
+        print(f"gender match: {match}")
         return match
 
     def paginated_match(self):
-        # gets a subset of the match result, 
-        p = Paginator(self._get_match(), 3)
-        page = p.page(self.request.page)
+        # gets a subset of the match result,
+        _matches = self._get_match()
+        p = Paginator(_matches, 3)
+        page = p.page(1)
 
-        return page
+        return {
+            'page': page,
+            'matches': _matches
+        }
 
     def request_next(self):
         if self.request.page == 0:
@@ -76,10 +80,10 @@ class PenziQuery:
         else:
             res = self.paginated_match()
             msg = ""
-            for item in res.object_list:
+            for item in res["page"].object_list:
                 msg += f"{item.full_name}, age {item.age}, {item.phone}, "
             # VERY IMPORTANT ### INCREMENT PAGE ###
-            if res.has_next:
+            if res["page"].has_next:
                 self.request.page += 1
             else:
                 self.request.page = 0
@@ -89,33 +93,32 @@ class PenziQuery:
     def generate_message(self):
         messages = []
         res = self.paginated_match()
-        all_matches = self._get_match().count()
 
-        print(f"all matches: {self._get_match()}")
-        if all_matches == 0:
+        print(f"all matches: {res['matches']}")
+        if res["matches"].count() == 0:
             message = f"We couldn't find {self.title_plural} matching your criteria. Try again later."
-        elif all_matches == 1:
+        elif res["matches"].count() == 1:
             message = f"We have 1 {self.title} who match your choice! We will send you the details. To get more " \
                       f"details about a {self.pronoun}, SMS {self.refer} number EG 0722123456 to 5001 "
-        elif all_matches <= 3:
-            message = f"We have {self._get_match().count()} {self.title_plural} who match your choice. We will send " \
+        elif res["matches"].count() <= 3:
+            message = f"We have {res['matches'].count()} {self.title_plural} who match your choice. We will send " \
                       f"you their details shortly. To get more details about a {self.pronoun}, SMS {self.refer} " \
                       f"number EG 0722123456 to 5001 "
         else:
-            message = f"We have {self._get_match().count()} {self.title_plural} who match your choice. We will send " \
+            message = f"We have {res['matches'].count()} {self.title_plural} who match your choice. We will send " \
                       f"you details of 3 of them shortly. To get more details about a {self.pronoun}, SMS {self.refer}"\
                       f" number EG 0722123456 to 5001 "
 
         messages.append(message)
 
         second_message = ""
-        for item in res.object_list:
+        for item in res['page'].object_list:
             second_message += f"{item.full_name}, age {item.age}, {item.phone}, "
 
         messages.append(second_message)
 
         # VERY IMPORTANT ### INCREMENT PAGE ###
-        if res.has_next:
+        if res['page'].has_next():
             self.request.page += 1
         else:
             self.request.page = 0
@@ -386,7 +389,7 @@ class Process:
                 "the word MYSELF E.G MYSELF chocolate, lovely, sexy etc"]
 
         elif category == MessageCategory.SELF_DESCRIPTION:
-            text = data.text.split(" ")
+            text = [x for x in data.text.split(" ") if x != ""]
             user = User.objects.get(phone=phone)
 
             desc = UserDescription.objects.get(user=user)
@@ -425,7 +428,7 @@ class Process:
         elif category == MessageCategory.SUBSEQUENT_MATCH:
             user = User.objects.get(phone=phone)
 
-            match = MatchRequest().objects.filter(user=user).last()
+            match = MatchRequest.objects.filter(user=user).last()
             message = PenziQuery(match).request_next()
 
             response["action"] = "reply"
@@ -441,15 +444,15 @@ class Process:
             if user.count() > 0:
                 user = user.first()
                 message = f"{user.full_name}, aged {user.age}, {user.town} town - {user.county} county"
-                if user.userdetails.education is not None:
+                if len(user.userdetails.education) > 0:
                     message += f" {user.userdetails.education},"
-                if user.userdetails.profession is not None:
+                if len(user.userdetails.profession) > 0:
                     message += f" {user.userdetails.profession},"
-                if user.userdetails.marital_status is not None:
+                if len(user.userdetails.marital_status) > 0:
                     message += f" {user.userdetails.marital_status},"
-                if user.userdetails.religion is not None:
+                if len(user.userdetails.religion) > 0:
                     message += f" {user.userdetails.religion},"
-                if user.userdetails.tribe is not None:
+                if len(user.userdetails.tribe) > 0:
                     message += f" {user.userdetails.tribe},"
 
                 message += f" Send DESCRIBE {user.phone} to get more details about {user.full_name}"
@@ -460,7 +463,7 @@ class Process:
                 response["messages"] = ["User not found"]
 
         elif category == MessageCategory.DESCRIPTION_REQUEST:
-            searched_desc = data.text.split("#")
+            searched_desc = [x for x in data.text.split(" ") if x != ""][1]
 
             result = User.objects.filter(phone=searched_desc)
             if not result.count() > 0:
@@ -469,7 +472,10 @@ class Process:
             else:
                 result = result.first()
                 response["action"] = "reply"
-                response["messages"] = [f"{result.user_description.text}"]
+                if len(result.userdescription.description.strip()) == 0:
+                    response["messages"] = [f"{result.full_name} has not set a description"]
+                else:
+                    response["messages"] = [f"{result.userdescription.description}"]
 
         elif category == MessageCategory.RE_ACTIVATION:
             response["action"] = "reply"
