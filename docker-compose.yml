@@ -10,7 +10,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports: 
-      - "5432:5432"
+      - "54320:54320"
   web:
     build: .
     environment: 
@@ -21,7 +21,5 @@ services:
       - /bin/sh
       - '-c'
       - '/code/entrypoint.sh'
-    ports:
-      - "8000:8000"
     depends_on:
       - db
