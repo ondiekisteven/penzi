@@ -48,19 +48,16 @@ class PenziQuery:
     def _get_match(self):
         # check user request
         town_match = User.objects.filter(Q(town__icontains=self.request.town) | Q(county__icontains=self.request.town))
-        print(f"Town match: {town_match}")
 
         if self.request.lower_age is not None:
             age_match = town_match.filter(age__range=(self.request.lower_age, self.request.upper_age))
         else:
             age_match = town_match.filter(age=self.request.upper_age)
-        print(f"age match: {age_match}")
 
         if self.request.user.gender == "male":
             match = age_match.filter(gender="female")
         else:
             match = age_match.filter(gender="male")
-        print(f"gender match: {match}")
         return match
 
     def paginated_match(self):
@@ -115,7 +112,8 @@ class PenziQuery:
         for item in res['page'].object_list:
             second_message += f"{item.full_name}, age {item.age}, {item.phone}, "
 
-        messages.append(second_message)
+        if second_message != "":
+            messages.append(second_message)
 
         # VERY IMPORTANT ### INCREMENT PAGE ###
         if res['page'].has_next():
@@ -139,10 +137,15 @@ class Penzi:
             return False
         return True
 
-    def category(self, text: str):
+    def category(self, text=None):
         """
         Categorize text depending on first word
         """
+        if text is None:
+            text = self.message.text
+        else:
+            text = text
+
         if text == "penzi":
             return MessageCategory.SERVICE_ACTIVATION
         elif text.startswith("start"):
@@ -157,7 +160,7 @@ class Penzi:
             return MessageCategory.SUBSEQUENT_MATCH
         elif text.startswith("describe"):
             return MessageCategory.DESCRIPTION_REQUEST
-        elif text == "YES":
+        elif text == "yes":
             return MessageCategory.NOTICE_CONFIRMATION
         elif text == "activate":
             return MessageCategory.RE_ACTIVATION
@@ -275,6 +278,12 @@ class Penzi:
             response["category"] = category
             response["message"] = self.message
 
+        elif category == MessageCategory.NOTICE_CONFIRMATION:
+            response["code"] = 0
+            response["desc"] = "valid"
+            response["category"] = category
+            response["message"] = self.message
+
         return response
 
 
@@ -309,6 +318,28 @@ class Process:
             track.command = self.validation["category"]
             track.save()
             return
+
+    def user_describe(self, phone):
+        user = User.objects.filter(phone=phone)
+        if user.count() > 0:
+            user = user.first()
+            message = f"{user.full_name}, aged {user.age}, {user.town} town - {user.county} county"
+            if len(user.userdetails.education) > 0:
+                message += f" {user.userdetails.education},"
+            if len(user.userdetails.profession) > 0:
+                message += f" {user.userdetails.profession},"
+            if len(user.userdetails.marital_status) > 0:
+                message += f" {user.userdetails.marital_status},"
+            if len(user.userdetails.religion) > 0:
+                message += f" {user.userdetails.religion},"
+            if len(user.userdetails.tribe) > 0:
+                message += f" {user.userdetails.tribe},"
+
+            message += f" Send DESCRIBE {user.phone} to get more details about {user.full_name}"
+        else:
+            message = ""
+
+        return message
 
     def process(self) -> dict:
         phone = self.validation["message"].source
@@ -440,27 +471,15 @@ class Process:
                 phonenumbers.parse(data.text, 'KE'),
                 phonenumbers.PhoneNumberFormat.E164
             )[1:])
-            user = User.objects.filter(phone=search_term)
-            if user.count() > 0:
-                user = user.first()
-                message = f"{user.full_name}, aged {user.age}, {user.town} town - {user.county} county"
-                if len(user.userdetails.education) > 0:
-                    message += f" {user.userdetails.education},"
-                if len(user.userdetails.profession) > 0:
-                    message += f" {user.userdetails.profession},"
-                if len(user.userdetails.marital_status) > 0:
-                    message += f" {user.userdetails.marital_status},"
-                if len(user.userdetails.religion) > 0:
-                    message += f" {user.userdetails.religion},"
-                if len(user.userdetails.tribe) > 0:
-                    message += f" {user.userdetails.tribe},"
 
-                message += f" Send DESCRIBE {user.phone} to get more details about {user.full_name}"
-                response["action"] = "reply"
-                response["messages"] = [message]
-            else:
+            message = self.user_describe(search_term)
+            if message is None:
                 response["action"] = "noreply"
                 response["messages"] = ["User not found"]
+
+            else:
+                response["action"] = "reply"
+                response["messages"] = [message]
 
         elif category == MessageCategory.DESCRIPTION_REQUEST:
             searched_desc = [x for x in data.text.split(" ") if x != ""][1]
@@ -476,12 +495,22 @@ class Process:
                     response["messages"] = [f"{result.full_name} has not set a description"]
                 else:
                     response["messages"] = [f"{result.userdescription.description}"]
+                response["searched_user"] = result
 
         elif category == MessageCategory.RE_ACTIVATION:
             response["action"] = "reply"
             response["messages"] = [
                 "You are now registered! Enjoy yourself. To search for a MPENZI, SMS Match#age#town to 5001 E.G "
                 "Match#23-25#Nairobi"]
+
+        elif category == MessageCategory.NOTICE_CONFIRMATION:
+            last_message = Message.objects.filter(destination=phone).last()
+            print(f"NOTICE CONFIRMATION SOURCE LAST MESSAGE: {last_message}")
+            if 'is interested in you' in last_message.text:
+                search = Message.objects.filter(text__istartswith='describe').filter(text__contains=phone).last().source
+                message = self.user_describe(search)
+                response["action"] = 'reply'
+                response["messages"] = [message]
 
         self.update_command_track()
         return response

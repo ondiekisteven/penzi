@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block here %}
+latest
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-9">
+
+            <div class="row">
+                <div class="col-md-4 col-sm-6 col-xs-12">
+                  <div class="info-box">
+                    <span class="info-box-icon bg-aqua"><i class="fa fa-envelope-o"></i></span>
+
+                    <div class="info-box-content">
+                      <span class="info-box-text">Total Messages</span>
+                      <span class="info-box-number">{{ all_messages }}</span>
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+                  <!-- /.info-box -->
+                </div>
+                <!-- /.col -->
+                <div class="col-md-4 col-sm-6 col-xs-12">
+                  <div class="info-box">
+                    <span class="info-box-icon bg-green"><i class="fa fa-flag-o"></i></span>
+
+                    <div class="info-box-content">
+                      <span class="info-box-text">Total Received</span>
+                      <span class="info-box-number">{{ received }}</span>
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+                  <!-- /.info-box -->
+                </div>
+                <!-- /.col -->
+                <div class="col-md-4 col-sm-6 col-xs-12">
+                  <div class="info-box">
+                    <span class="info-box-icon bg-purple"><i class="fa fa-file"></i></span>
+
+                    <div class="info-box-content">
+                      <span class="info-box-text">Total Sent</span>
+                      <span class="info-box-number">{{ sent_messages }}</span>
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+                  <!-- /.info-box -->
+                </div>
+                <div class="col-md-4">
+                  <div class="info-box">
+                    <span class="info-box-icon bg-yellow"><i class="fa fa-files"></i></span>
+                    <div class="info-box-content">
+                      <span class="info-box-text">Messages Today</span>
+                      <span class="info-box-number">{{ today_messages }}</span>
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+                </div>
+
+                <div class="col-md-5">
+                  <div class="info-box">
+                    <span class="info-box-icon bg-yellow"><i class="fa fa-files"></i></span>
+                    <div class="info-box-content">
+                      <span class="info-box-text">Average Per Hour</span>
+                      <span class="info-box-number">{{ hourly_average|floatformat:2 }} messages</span>
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                  <div class="box">
+                    <div class="box-header">
+                      <h3 class="box-title">Latest Messages</h3>
+
+                      <div class="box-tools">
+                        <div class="input-group input-group-sm" style="width: 150px;">
+                            <form method="post" action="{% url 'dashboard' %}">
+                                {% csrf_token %}
+
+                                <div class="input-group input-group-sm">
+                                    <input id="txtSearch" type="text" name="table_search" placeholder="enter phone..." class="form-control">
+                                    <span class="input-group-btn">
+                                      <button type="submit" class="btn btn-info btn-flat">Search</button>
+                                    </span>
+                                </div>
+                            </form>
+
+                        </div>
+                      </div>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body table-responsive no-padding">
+                      <table class="table table-bordered table-hover">
+                        <tr>
+                          <th>ID</th>
+                          <th>Source</th>
+                          <th>Destination</th>
+                          <th>Message</th>
+                          <th>Type</th>
+                          <th>Date</th>
+                        </tr>
+                          {% for message in latest_messages %}
+                            <tr>
+                              <td>{{ message.pk }}</td>
+                              <td>{{ message.source }}</td>
+                              <td>{{ message.destination }}</td>
+                              <td>{{ message.text }}</td>
+                                {% if message.type == 1 %}
+                                    <td><span class="label label-primary">Outgoing</span></td>
+                                {% else %}
+                                    <td><span class="label label-success">Incoming</span></td>
+                                {% endif %}
+                              <td>{{ message.date_created|timesince }} ago</td>
+                            </tr>
+                          {% endfor %}
+                      </table>
+                    <div class="box-footer clearfix">
+                      <ul class="pagination pagination-sm no-margin pull-right">
+                          <li><a href="?page=1">&laquo;</a></li>
+                          {% if latest_messages.has_previous %}
+                            <li><a href="?page={{ latest_messages.previous_page_number }}">{{ latest_messages.previous_page_number }}</a></li>
+                          {% endif %}
+
+                        <li><a href="#">{{ latest_messages.number }}</a></li>
+                        {% if latest_messages.has_next %}
+                            <li><a href="?page={{ latest_messages.next_page_number }}">{{ latest_messages.next_page_number }}</a></li>
+                        {% endif %}
+                        <li><a href="?page={{ latest_messages.paginator.num_pages }}">&raquo;</a></li>
+                      </ul>
+                    </div>
+                    </div>
+                    <!-- /.box-body -->
+                  </div>
+                  <!-- /.box -->
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="box box-primary">
+            <div class="box-header with-border">
+              <h3 class="box-title">FILTER MESSAGES</h3>
+            </div>
+            <!-- /.box-header -->
+            <div class="box-body">
+                <ul class="list">
+                    <div class="list-header">BY TYPE</div>
+                    <li class="list-group-item"><button type="button" class="btn bg-white btn-flat margin"><a
+                            href="{% url 'dashboard' %}">All&nbsp<span class="pull-right badge bg-red">{{ all_messages }}</span></a></button></li>
+                    <li class="list-group-item"><button type="button" class="btn bg-success btn-flat margin"><a
+                            href="?filter=0">RECEIVED&nbsp<span class="pull-right badge bg-green">{{ received }}</span></a></button></li>
+                    <li class="list-group-item"><button type="button" class="btn bg-info btn-flat margin"><a
+                            href="?filter=1">SENT&nbsp<span class="pull-right badge bg-purple">{{ sent_messages }}</span></a></button></li>
+                </ul>
+
+
+              <hr>
+
+              <strong><i class="fa fa-map-marker margin-r-5"></i> Location</strong>
+
+              <p class="text-muted">Malibu, California</p>
+
+              <hr>
+
+              <strong><i class="fa fa-pencil margin-r-5"></i> Skills</strong>
+
+              <p>
+                <span class="label label-danger">UI Design</span>
+                <span class="label label-success">Coding</span>
+                <span class="label label-info">Javascript</span>
+                <span class="label label-warning">PHP</span>
+                <span class="label label-primary">Node.js</span>
+              </p>
+
+              <hr>
+
+              <strong><i class="fa fa-file-text-o margin-r-5"></i> Notes</strong>
+
+              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam fermentum enim neque.</p>
+            </div>
+            <!-- /.box-body -->
+          </div>
+        </div>
+    </div>
+{% endblock %}

@@ -16,10 +16,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.urls.conf import include
+from accounts import urls as acc_urls
 
 from web import urls
+from web.views import save_message
 
 urlpatterns = [
+    path('messages/', save_message, name='chat'),
     path('admin/', admin.site.urls),
-    path('', include(urls))
+    path('dashboard/', include(urls)),
+    path('accounts/', include(acc_urls)),
 ]

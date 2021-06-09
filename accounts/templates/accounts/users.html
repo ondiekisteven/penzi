@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+        <div class="col-md-12">
+          <div class="nav-tabs-custom">
+            <ul class="nav nav-tabs">
+              <li class="active"><a href="#activity" data-toggle="tab">Penzi Users</a></li>
+              <li><a href="#timeline" data-toggle="tab">Admins</a></li>
+            </ul>
+            <div class="tab-content">
+              <div class="active tab-pane" id="activity">
+                <div class="box">
+                    <div class="box-header">
+                      <h3 class="box-title">Penzi Users</h3>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body">
+                      <table id="example1" class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Phone</th>
+                          <th>Name</th>
+                          <th>Age</th>
+                          <th>Gender</th>
+                          <th>County</th>
+                          <th>Town</th>
+                          <th>Last User</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for user in penzi_users %}
+                            <tr>
+                              <td>{{ forloop.counter }}</td>
+                              <td>{{ user.phone }}</td>
+                              <td>{{ user.full_name }}</td>
+                              <td>{{ user.age }}</td>
+                              <td>{{ user.gender }}</td>
+                              <td>{{ user.county }}</td>
+                              <td>{{ user.town }}</td>
+                              <td>{{ user.last_use|timesince }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                          <th>#</th>
+                          <th>Phone</th>
+                          <th>Name</th>
+                          <th>Age</th>
+                          <th>Gender</th>
+                          <th>County</th>
+                          <th>Town</th>
+                          <th>Last User</th>
+                        </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+            <!-- /.box-body -->
+          </div>
+                <!-- /.post -->
+              </div>
+              <!-- /.tab-pane -->
+              <div class="tab-pane" id="timeline">
+                <!-- The timeline -->
+                <div class="box">
+                    <div class="box-header">
+                      <h3 class="box-title">ADMINS</h3>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body">
+                      <table id="example1" class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>username</th>
+                          <th>Email</th>
+                          <th>Full Name</th>
+                          <th>Last Login</th>
+
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for admin in admins %}
+
+                            <tr>
+                              <td>{{ forloop.counter }}</td>
+                              <td>{{ admin.username }}</td>
+                              <td>{{ admin.email }}</td>
+                              <td>{{ admin.first_name }} {{ admin.last_name }}</td>
+                                {% if admin.last_login is None %}
+                                    <td>Not Logged Yet</td>
+                                {% else %}
+                                    <td>{{ admin.last_login|timesince  }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                          <th>#</th>
+                          <th>username</th>
+                          <th>Email</th>
+                          <th>Full Name</th>
+                          <th>Last Login</th>
+                        </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+            <!-- /.box-body -->
+          </div>
+              </div>
+              <!-- /.tab-pane -->
+            </div>
+            <!-- /.tab-content -->
+          </div>
+          <!-- /.nav-tabs-custom -->
+        </div>
+    </div>
+
+{% endblock %}
