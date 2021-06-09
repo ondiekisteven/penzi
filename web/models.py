@@ -32,7 +32,7 @@ class MessageCategory(IntEnum):
 
 
 class User(models.Model):
-    phone = models.IntegerField(unique=True)
+    phone = models.BigIntegerField(unique=True)
     full_name = models.CharField(max_length=150)
     age = models.IntegerField()
     gender = models.CharField(max_length=10)
@@ -101,6 +101,6 @@ class CommandTrack(models.Model):
 class Message(models.Model):
     text = models.CharField(max_length=200)
     type = models.IntegerField(choices=MessageType.choices())  # incoming/outgoing
-    source = models.IntegerField()
-    destination = models.IntegerField()
+    source = models.BigIntegerField()
+    destination = models.BigIntegerField()
     date_created = models.DateTimeField(auto_now_add=True)
