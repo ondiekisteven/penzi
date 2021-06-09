@@ -64,7 +64,7 @@ class PenziQuery:
         # gets a subset of the match result,
         _matches = self._get_match()
         p = Paginator(_matches, 3)
-        page = p.page(1)
+        page = p.page(self.request.page)
 
         return {
             'page': page,
@@ -78,9 +78,10 @@ class PenziQuery:
             res = self.paginated_match()
             msg = ""
             for item in res["page"].object_list:
-                msg += f"{item.full_name}, age {item.age}, {item.phone}, "
+                msg += f"Name: {item.full_name}\nAge: {item.age}\nPhone: {item.phone}\n\n"
             # VERY IMPORTANT ### INCREMENT PAGE ###
-            if res["page"].has_next:
+            if res["page"].has_next():
+                msg += " \nSend NEXT to see more results"
                 self.request.page += 1
             else:
                 self.request.page = 0
@@ -110,17 +111,18 @@ class PenziQuery:
 
         second_message = ""
         for item in res['page'].object_list:
-            second_message += f"{item.full_name}, age {item.age}, {item.phone}, "
-
-        if second_message != "":
-            messages.append(second_message)
+            second_message += f"Name: {item.full_name}\nAge: {item.age}\nPhone: {item.phone}\n\n"
 
         # VERY IMPORTANT ### INCREMENT PAGE ###
         if res['page'].has_next():
+            second_message += " \n\nSend NEXT to see more results"
             self.request.page += 1
         else:
             self.request.page = 0
         self.request.save()
+
+        if second_message != "":
+            messages.append(second_message)
 
         return messages
 
