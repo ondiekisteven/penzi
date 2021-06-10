@@ -4,7 +4,11 @@ from django.core.paginator import Paginator
 from django.db.models.query_utils import Q
 from phonenumbers import NumberParseException
 
-from web.models import CommandTrack, MatchRequest, Message, MessageCategory, User, UserDescription, UserDetails
+from web.models import CommandTrack, MatchRequest, Message, MessageCategory, MessageType, User, UserDescription, UserDetails
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 """
 NOTES:
@@ -21,6 +25,72 @@ if there is, access the 'messages' key from the response, and send the value to 
 messages is a list
 
 """
+
+
+def send_search_notification(searching: Message, searched: User):
+    searching_user = User.objects.filter(phone=searching.source)
+    if searching_user.exists():
+        searching_user = searching_user.first()
+        if searching_user.gender == "male":
+            title = "gent"
+            pronoun = "him"
+            refer = "his"
+        else:
+            title = "lady"
+            pronoun = "her"
+            refer = "her"
+        message = Message.objects.create(
+            text=f"Hi {searched.full_name}, a {title} named {searching_user.full_name} is interested in you and has "
+                 f"requested your details, aged {searching_user.age} based in {searching_user.town}. Do you want to "
+                 f"know more about {pronoun}? Reply with YES to get more details about {refer}",
+            type=MessageType.OUTGOING,
+            source=1234,
+            destination=searched.phone
+        )
+        logger.info(f"SEARCHED USER NOTIFICATION: {message}")
+
+
+def parse_message(instance):
+    if instance.source == 1234:
+        return []
+    penzi = Penzi(instance)
+    penzi_reply = penzi.validate()
+    logger.info(f"PENZI REPLY: {penzi_reply}")
+    if 'category' in penzi_reply:
+
+        reply = Process(penzi_reply).process()
+        logger.info(f"PROCESSING REPLY: {reply}")
+
+        if reply['action'] == "reply":
+            reply_messages = []
+            # loop through and send all messages
+            for message in reply["messages"]:
+                message = Message.objects.create(
+                    text=message,
+                    type=MessageType.OUTGOING,
+                    source=1234,
+                    destination=instance.source
+                )
+                reply_messages.append(message)
+            if penzi_reply["category"] == MessageCategory.DESCRIPTION_REQUEST and 'searched_user' in reply:
+
+                # if user is requesting description, send notification to the searched user
+                notif_user = reply['searched_user']
+                send_search_notification(instance, notif_user)
+            return reply_messages
+        else:
+            return []
+    else:
+        if penzi.category() != MessageCategory.SERVICE_REGISTRATION:
+            return []
+        # only reply with invalid input message to unregistered users if they are trying to register
+        message = Message.objects.create(
+            text=penzi_reply["desc"],
+            type=MessageType.OUTGOING,
+            source=1234,
+            destination=instance.source
+        )
+        return [message]
 
 
 class PenziQuery:
@@ -92,7 +162,6 @@ class PenziQuery:
         messages = []
         res = self.paginated_match()
 
-        print(f"all matches: {res['matches']}")
         if res["matches"].count() == 0:
             message = f"We couldn't find {self.title_plural} matching your criteria. Try again later."
         elif res["matches"].count() == 1:
@@ -147,27 +216,29 @@ class Penzi:
             text = self.message.text
         else:
             text = text
-
+        category = ""
         if text == "penzi":
-            return MessageCategory.SERVICE_ACTIVATION
+            category = MessageCategory.SERVICE_ACTIVATION
         elif text.startswith("start"):
-            return MessageCategory.SERVICE_REGISTRATION
+            category = MessageCategory.SERVICE_REGISTRATION
         elif text.startswith("details"):
-            return MessageCategory.DETAILS_REGISTRATION
+            category = MessageCategory.DETAILS_REGISTRATION
         elif text.startswith("myself"):
-            return MessageCategory.SELF_DESCRIPTION
+            category = MessageCategory.SELF_DESCRIPTION
         elif text.startswith("match"):
-            return MessageCategory.MATCH_REQUEST
+            category = MessageCategory.MATCH_REQUEST
         elif text.startswith("next"):
-            return MessageCategory.SUBSEQUENT_MATCH
+            category = MessageCategory.SUBSEQUENT_MATCH
         elif text.startswith("describe"):
-            return MessageCategory.DESCRIPTION_REQUEST
+            category = MessageCategory.DESCRIPTION_REQUEST
         elif text == "yes":
-            return MessageCategory.NOTICE_CONFIRMATION
+            category = MessageCategory.NOTICE_CONFIRMATION
         elif text == "activate":
-            return MessageCategory.RE_ACTIVATION
+            category = MessageCategory.RE_ACTIVATION
         if self._is_phone():
-            return MessageCategory.MORE_DETAILS
+            category = MessageCategory.MORE_DETAILS
+        logger.info(f"category -> {category}")
+        return category
 
     def validate(self) -> dict:
         """
@@ -285,7 +356,8 @@ class Penzi:
             response["desc"] = "valid"
             response["category"] = category
             response["message"] = self.message
-
+        
+        logger.info(f"response -> {response}")
         return response
 
 
@@ -316,9 +388,11 @@ class Process:
                     user=User.objects.get(phone=self.validation["message"].source),
                     command=MessageCategory.SERVICE_REGISTRATION
                 )
+                logger.warning(f'User has not CommandTrack. Creating... -> {self.validation["message"].source}')
                 return
             track.command = self.validation["category"]
             track.save()
+            logger.debug(f'Updating user -> {self.validation["message"].source}, command -> {track.command}')
             return
 
     def user_describe(self, phone):
@@ -507,7 +581,7 @@ class Process:
 
         elif category == MessageCategory.NOTICE_CONFIRMATION:
             last_message = Message.objects.filter(destination=phone).last()
-            print(f"NOTICE CONFIRMATION SOURCE LAST MESSAGE: {last_message}")
+            logging.info(f"NOTICE CONFIRMATION SOURCE LAST MESSAGE: {last_message}")
             if 'is interested in you' in last_message.text:
                 search = Message.objects.filter(text__istartswith='describe').filter(text__contains=phone).last().source
                 message = self.user_describe(search)
@@ -515,4 +589,5 @@ class Process:
                 response["messages"] = [message]
 
         self.update_command_track()
+        logger.info(f'processing -> {response}')
         return response

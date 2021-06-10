@@ -1,7 +1,10 @@
+from api.serializers import MessageSerializer
 from http.client import HTTPResponse
 from json import dumps
 
 import phonenumbers
+
+from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Count, Avg
 from django.db.models.query_utils import Q
@@ -9,6 +12,10 @@ from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 from phonenumbers import NumberParseException
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 from web.models import Message, MessageType, User
 from django.shortcuts import redirect, render
@@ -109,3 +116,34 @@ def save_message(request):
         'latest': last
     }
     return render(request, 'web/chat.html', context)
+
+
+@api_view
+def messages_list(request, format=None):
+    if request.method=='GET':
+        messages = Message.objects.all()
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = MessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@csrf_exempt
+def user_messages(request, phone, format=None):
+    try:
+        number = phonenumbers.format_number(
+            phonenumbers.parse(phone, 'KE'),
+            phonenumbers.PhoneNumberFormat.E164
+        )[1:]
+    except NumberParseException:
+        return JsonResponse({"error": "Invalid phone"}, status=400)
+
+    if request.method == 'GET':
+        messages = Message.objects.filter(Q(source=number) | Q(destination=number))
+        serializer = MessageSerializer(messages, many=True)
+        return JsonResponse(serializer.data, safe=False)
