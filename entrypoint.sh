@@ -13,7 +13,7 @@ python manage.py collectstatic --noinput
 
 gunicorn penzi.wsgi:application \
     --name penzi \
-    --bind 0.0.0.0:8000 \
+    --bind 0.0.0.0:8001 \
     --timeout 600 \
     --workers 4 \
     --log-level=info \
