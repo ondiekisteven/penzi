@@ -19,11 +19,19 @@ from django.urls.conf import include
 from accounts import urls as acc_urls
 
 from web import urls
-from web.views import save_message
+from web.views import save_message, messages_list, user_messages
+from api import urls as api_urls
+
+from rest_framework.urlpatterns import format_suffix_patterns
 
 urlpatterns = [
     path('messages/', save_message, name='chat'),
     path('admin/', admin.site.urls),
     path('dashboard/', include(urls)),
     path('accounts/', include(acc_urls)),
+    path('api/v1/', include(api_urls)),
+    path('api/messages/', messages_list),
+    path('api/messages/<str:phone>/', user_messages),
 ]
+
+urlpatterns = format_suffix_patterns(urlpatterns)
