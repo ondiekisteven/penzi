@@ -100,7 +100,7 @@ class CommandTrack(models.Model):
 
 class Message(models.Model):
     text = models.CharField(max_length=200)
-    type = models.IntegerField(choices=MessageType.choices())  # incoming/outgoing
+    type = models.IntegerField(choices=MessageType.choices(), default=MessageType.INCOMING)  # incoming/outgoing
     source = models.BigIntegerField()
-    destination = models.BigIntegerField()
+    destination = models.BigIntegerField(default=1234)
     date_created = models.DateTimeField(auto_now_add=True)
