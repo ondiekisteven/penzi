@@ -25,7 +25,7 @@ from api import urls as api_urls
 from rest_framework.urlpatterns import format_suffix_patterns
 
 urlpatterns = [
-    path('messages/', save_message, name='chat'),
+    path('', save_message, name='chat'),
     path('admin/', admin.site.urls),
     path('dashboard/', include(urls)),
     path('accounts/', include(acc_urls)),
