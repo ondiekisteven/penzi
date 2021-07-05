@@ -1,16 +1,14 @@
-from api.utils import APIResponse, APIResponseSerializer, ResponseCode, ResponseMessage
-from os import read
-from web.penzi import parse_message
 import phonenumbers
 import logging
 
 from django.db.models import Q
 
 from rest_framework.views import APIView
-from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 
+from api.utils import APIResponse, APIResponseSerializer, ResponseCode, ResponseMessage
+from web.penzi import parse_message
 from web.models import Message
 from api.serializers import MessageSerializer
 
@@ -27,6 +25,7 @@ def validate_phone(phone):
         return number
     except phonenumbers.NumberParseException:
         return None
+
 
 class MessagesList(APIView):
     """

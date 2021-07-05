@@ -19,10 +19,3 @@ def create_details(sender, instance, created, **kwargs):
         logger.info(desc)
         cmd_track = CommandTrack.objects.create(user=instance)
         logger.info(cmd_track)
-
-
-# signal for processing a message after it has been create
-@receiver(post_save, sender=Message)
-def parse_message(sender, instance, created, **kwargs):
-    if created:
-        pass

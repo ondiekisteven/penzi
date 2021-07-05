@@ -20,6 +20,8 @@ from rest_framework import status
 from web.models import Message, MessageType, User
 from django.shortcuts import redirect, render
 
+from web.penzi import parse_message
+
 
 def dashboard(request):
     # CHECK IF THERE IS A PHONE SEARCH
@@ -102,6 +104,7 @@ def save_message(request):
         message.destination = "1234"  # shortcode
         message.type = MessageType.INCOMING
         message.save()
+        parse_message(message)
         ###########################################
         return redirect('{}?phone={}'.format(reverse('chat'), number))
     if phone:
