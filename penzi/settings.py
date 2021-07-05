@@ -33,6 +33,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'penzi.urls'
 
+ADMINS = (('steven', 'somwaki@gmail.com'), )
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
