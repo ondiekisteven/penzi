@@ -6,7 +6,9 @@
           <div class="nav-tabs-custom">
             <ul class="nav nav-tabs">
               <li class="active"><a href="#activity" data-toggle="tab">Penzi Users</a></li>
-              <li><a href="#timeline" data-toggle="tab">Admins</a></li>
+              {% if user.is_superuser %}
+                <li><a href="#timeline" data-toggle="tab">Admins</a></li>
+              {% endif %}
             </ul>
             <div class="tab-content">
               <div class="active tab-pane" id="activity">

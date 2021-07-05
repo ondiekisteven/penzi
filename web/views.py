@@ -11,6 +11,7 @@ from django.db.models.query_utils import Q
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 from phonenumbers import NumberParseException
 
 from rest_framework.decorators import api_view
@@ -23,6 +24,7 @@ from django.shortcuts import redirect, render
 from web.penzi import parse_message
 
 
+@login_required
 def dashboard(request):
     # CHECK IF THERE IS A PHONE SEARCH
     if request.method == 'POST':
@@ -67,6 +69,7 @@ def dashboard(request):
     return render(request, 'web/dashboard.html', context)
 
 
+@login_required
 def search_phone(request):
     if request.is_ajax():
         query = request.GET.get('q', '')
