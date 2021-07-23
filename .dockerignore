@@ -1,0 +1,9 @@
+.idea
+.vscode
+nginx
+staticfiles
+venv
+data (copy).txt
+data.txt
+sqlite3.db
+.git/
